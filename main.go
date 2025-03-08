@@ -54,7 +54,9 @@ func downloadTest(ctx context.Context, conn *websocket.Conn, file *os.File) erro
 				// Access the UUID
 				if connectionInfo, ok := msg["ConnectionInfo"].(map[string]interface{}); ok {
 					if uuid, ok := connectionInfo["UUID"].(string); ok {
-						fmt.Fprintf(file,"UUID: %s, Test: Download\n", uuid)
+						timestamp := time.Now().Format("150405")
+						date :=time.Now().Format("2006/01/02")
+						fmt.Fprintf(file,"%s,%s,%s,Download\n", date,timestamp,uuid)
 					} else {
 						fmt.Println("UUID not found or not a string")
 					}
@@ -62,6 +64,7 @@ func downloadTest(ctx context.Context, conn *websocket.Conn, file *os.File) erro
 					fmt.Println("ConnectionInfo not found or not a map")
 				}
 				logged += 1
+
 			}
 
 			continue
@@ -102,7 +105,6 @@ func uploadTest(ctx context.Context, conn *websocket.Conn, file *os.File) error 
 				if err != nil {
 					return
 				}
-
 				var msg map[string]interface{}
 				if err := json.Unmarshal(data, &msg); err != nil {
 					fmt.Printf("Error unmarshaling JSON: %v\n", err)
@@ -112,7 +114,9 @@ func uploadTest(ctx context.Context, conn *websocket.Conn, file *os.File) error 
 				// Access the UUID
 				if connectionInfo, ok := msg["ConnectionInfo"].(map[string]interface{}); ok {
 					if uuid, ok := connectionInfo["UUID"].(string); ok {
-						fmt.Fprintf(file,"UUID: %s, Test: Upload\n", uuid)
+						timestamp := time.Now().Format("150405")
+						date :=time.Now().Format("2006/01/02")
+						fmt.Fprintf(file,"%s,%s,%s,Upload\n",date,timestamp, uuid)
 					} else {
 						fmt.Println("UUID not found or not a string")
 					}
@@ -224,6 +228,7 @@ func main() {
 		return
 	}
 	defer file.Close()
+	fmt.Fprintf(file,"Date,Timestamp,UUID,Test\n")
 	for i := 0; i < 2; i++ {
 		flag.Parse()
 		ctx := context.Background()
@@ -242,6 +247,8 @@ func main() {
 				warnx(err, "download")
 			}
 		}
+		fmt.Printf("Speedtest download %d conducted\n", i)
+
 		if *flagUpload != "" {
 			if conn, err = dialer(ctx, *flagUpload); err != nil {
 				errx(1, err, "upload")
@@ -250,5 +257,7 @@ func main() {
 				warnx(err, "upload")
 			}
 		}
+		fmt.Printf("Speedtest upload %d conducted\n", i)
+
 	}
 }
