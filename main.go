@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
+	"math/rand"
 	"errors"
 	"flag"
 	"fmt"
@@ -11,6 +12,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"os/exec"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -220,6 +222,43 @@ func locate(ctx context.Context) error {
 	return nil
 }
 
+
+// applyRandomShaping generates random traffic shaping parameters and executes the script
+func applyShaping(direction string) error {
+	rand.Seed(time.Now().UnixNano()) // Seed random generator
+
+	// Generate random values
+	rate := fmt.Sprintf("%dmbit", rand.Intn(5000)+1)      // 1 - 100 Mbps
+	delay := fmt.Sprintf("%dms", rand.Intn(491)+10)      // 10 - 500 ms
+	jitter := fmt.Sprintf("%dms", rand.Intn(101))        // 0 - 100 ms
+	loss := fmt.Sprintf("%.2f%%", rand.Float64()*5)     // 0% - 5%
+
+	fmt.Println("Applying Traffic Shaping with:")
+	fmt.Println("  - Direction:", direction)
+	fmt.Println("  - Rate:", rate)
+	fmt.Println("  - Delay:", delay)
+	fmt.Println("  - Jitter:", jitter)
+	fmt.Println("  - Packet Loss:", loss)
+
+	// Execute shaping script
+	cmd := exec.Command("bash", "./shaper.sh", "start", direction, rate, delay, jitter, loss)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
+}
+
+
+// Stops traffic shaping
+func stopShaping() error {
+	fmt.Println("Stopping traffic shaping...")
+
+	// Execute stop script
+	cmd := exec.Command("bash", "./shaper.sh", "stop")
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
+}
+
 func main() {
 	// Open the file for writing
 	file, err := os.Create("output.csv")
@@ -239,6 +278,7 @@ func main() {
 		if err = locate(ctx); err != nil {
 			errx(1, err, "locate")
 		}
+		// applyShaping("download")
 		if *flagDownload != "" {
 			if conn, err = dialer(ctx, *flagDownload); err != nil {
 				errx(1, err, "download")
@@ -248,7 +288,11 @@ func main() {
 			}
 		}
 		fmt.Printf("Speedtest download %d conducted\n", i)
+		// stopShaping()
 
+		time.Sleep(3 * time.Second)
+
+		// applyShaping("upload")
 		if *flagUpload != "" {
 			if conn, err = dialer(ctx, *flagUpload); err != nil {
 				errx(1, err, "upload")
@@ -258,6 +302,6 @@ func main() {
 			}
 		}
 		fmt.Printf("Speedtest upload %d conducted\n", i)
-
+		// stopShaping()
 	}
 }
