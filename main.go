@@ -263,15 +263,26 @@ func stopShaping() error {
 }
 
 func main() {
-	// Open the file for writing
-	file, err := os.Create("output.csv")
+	filename := "output.csv"
+
+	// Check if the file exists
+	_, err := os.Stat(filename)
+	isNewFile := os.IsNotExist(err) // True if the file does not exist
+
+	// Open the file for appending, create if it doesn't exist
+	file, err := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
 	if err != nil {
-		fmt.Printf("Error creating file: %v\n", err)
+		fmt.Printf("Error opening file: %v\n", err)
 		return
 	}
 	defer file.Close()
-	fmt.Fprintf(file,"Machine,Date,Timestamp,UUID,Test\n")
-	for i := 0; i < 30; i++ {
+
+	// If the file is newly created, write the header row
+	if isNewFile {
+		fmt.Fprintf(file, "Machine,Date,Timestamp,UUID,Test\n")
+	}
+
+	for i := 0; i < 20; i++ {
 		flag.Parse()
 		ctx := context.Background()
 		var (
