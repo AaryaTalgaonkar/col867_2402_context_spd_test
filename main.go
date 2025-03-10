@@ -173,7 +173,7 @@ func dialer(ctx context.Context, URL string) (*websocket.Conn, error) {
 }
 
 func warnx(err error, testname string) {
-	fmt.Printf(`{"Failure":"%s","Test":"%s"}`+"\n\n", err.Error(), testname)
+	fmt.Printf(`{"Failure":"%s","Test":"%s"}`+"\n", err.Error(), testname)
 }
 
 func errx(exitcode int, err error, testname string) {
@@ -231,7 +231,7 @@ func applyShaping(direction string) error {
 	rand.Seed(time.Now().UnixNano()) // Seed random generator
 
 	// Generate random values
-	rate := fmt.Sprintf("%dmbit", rand.Intn(5000)+1)      // 1 - 100 Mbps
+	rate := fmt.Sprintf("%dmbit", rand.Intn(5000)+1)      // 1 - 5000 Mbps
 	delay := fmt.Sprintf("%dms", rand.Intn(491)+10)      // 10 - 500 ms
 	jitter := fmt.Sprintf("%dms", rand.Intn(101))        // 0 - 100 ms
 	loss := fmt.Sprintf("%.2f%%", rand.Float64()*5)     // 0% - 5%
@@ -271,7 +271,7 @@ func main() {
 	}
 	defer file.Close()
 	fmt.Fprintf(file,"Machine,Date,Timestamp,UUID,Test\n")
-	for i := 0; i < 2; i++ {
+	for i := 0; i < 30; i++ {
 		flag.Parse()
 		ctx := context.Background()
 		var (
@@ -279,14 +279,21 @@ func main() {
 			err         error
 			machineName string
 		)
-		// Call locate and store the returned machine name
-		if machineName, err = locate(ctx); err != nil {
-			errx(1, err, "locate")
+		for {
+			machineName, err = locate(ctx)
+			if err == nil {
+				break // Exit loop if successful
+			}
+			warnx(err, "locate")
 		}
 		// applyShaping("download")
 		if *flagDownload != "" {
-			if conn, err = dialer(ctx, *flagDownload); err != nil {
-				errx(1, err, "download")
+			for {
+				conn, err = dialer(ctx, *flagDownload)
+				if err == nil {
+					break // Exit loop if no error
+				}
+				warnx(err, "download") // Handle error (adjust as needed)
 			}
 			if err = downloadTest(ctx, conn,file,machineName); err != nil {
 				warnx(err, "download")
@@ -299,8 +306,12 @@ func main() {
 
 		// applyShaping("upload")
 		if *flagUpload != "" {
-			if conn, err = dialer(ctx, *flagUpload); err != nil {
-				errx(1, err, "upload")
+			for {
+				conn, err = dialer(ctx, *flagUpload)
+				if err == nil {
+					break // Exit loop if successful
+				}
+				warnx(err, "upload") // Handle error (adjust as needed)
 			}
 			if err = uploadTest(ctx, conn,file,machineName); err != nil {
 				warnx(err, "upload")
@@ -311,5 +322,6 @@ func main() {
 		// Reset flags to force locate to run again
 		*flagDownload = ""
 		*flagUpload = ""
+		time.Sleep(3 * time.Second)
 	}
 }
