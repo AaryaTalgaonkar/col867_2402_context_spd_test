@@ -14,7 +14,7 @@ import (
 	"os"
 	"os/exec"
 	"time"
-
+	"strings"
 	"github.com/gorilla/websocket"
 )
 
@@ -27,7 +27,7 @@ const (
 	fractionForScaling   = 16
 )
 
-func downloadTest(ctx context.Context, conn *websocket.Conn, file *os.File) error {
+func downloadTest(ctx context.Context, conn *websocket.Conn, file *os.File,machineName string) error {
 
 	if err := conn.SetReadDeadline(time.Now().Add(maxRuntime)); err != nil {
 		return err
@@ -56,9 +56,9 @@ func downloadTest(ctx context.Context, conn *websocket.Conn, file *os.File) erro
 				// Access the UUID
 				if connectionInfo, ok := msg["ConnectionInfo"].(map[string]interface{}); ok {
 					if uuid, ok := connectionInfo["UUID"].(string); ok {
-						timestamp := time.Now().Format("150405")
-						date :=time.Now().Format("2006/01/02")
-						fmt.Fprintf(file,"%s,%s,%s,Download\n", date,timestamp,uuid)
+						timestamp :=  time.Now().UTC().Format("150405")
+						date := time.Now().UTC().Format("2006/01/02")
+						fmt.Fprintf(file,"%s,%s,%s,%s,Download\n",machineName,date,timestamp,uuid)
 					} else {
 						fmt.Println("UUID not found or not a string")
 					}
@@ -83,7 +83,7 @@ func newMessage(n int) (*websocket.PreparedMessage, error) {
 	return websocket.NewPreparedMessage(websocket.BinaryMessage, make([]byte, n))
 }
 
-func uploadTest(ctx context.Context, conn *websocket.Conn, file *os.File) error {
+func uploadTest(ctx context.Context, conn *websocket.Conn, file *os.File,machineName string) error {
 	var total int64
 	if err := conn.SetWriteDeadline(time.Now().Add(maxRuntime)); err != nil {
 		return err
@@ -116,9 +116,9 @@ func uploadTest(ctx context.Context, conn *websocket.Conn, file *os.File) error 
 				// Access the UUID
 				if connectionInfo, ok := msg["ConnectionInfo"].(map[string]interface{}); ok {
 					if uuid, ok := connectionInfo["UUID"].(string); ok {
-						timestamp := time.Now().Format("150405")
-						date :=time.Now().Format("2006/01/02")
-						fmt.Fprintf(file,"%s,%s,%s,Upload\n",date,timestamp, uuid)
+						timestamp :=  time.Now().UTC().Format("150405")
+						date := time.Now().UTC().Format("2006/01/02")
+						fmt.Fprintf(file,"%s,%s,%s,%s,Upload\n",machineName,date,timestamp, uuid)
 					} else {
 						fmt.Println("UUID not found or not a string")
 					}
@@ -187,6 +187,7 @@ const (
 )
 
 type locateResponseResult struct {
+	Machine string            `json:"machine"`
 	URLs map[string]string `json:"urls"`
 }
 
@@ -194,32 +195,34 @@ type locateResponse struct {
 	Results []locateResponseResult `json:"results"`
 }
 
-func locate(ctx context.Context) error {
+func locate(ctx context.Context) (string, error) {
 	// If you don't specify any option then we use locate. Otherwise we assume
 	// you're testing locally and we only do what you asked us to do.
 	if *flagDownload != "" || *flagUpload != "" {
-		return nil
+		return "",nil
 	}
 	resp, err := http.Get("https://locate.measurementlab.net/v2/nearest/ndt/ndt7")
 	if err != nil {
-		return err
+		return "",err
 	}
 	defer resp.Body.Close()
 	data, err := ioutil.ReadAll(io.LimitReader(resp.Body, 1<<20))
 	if err != nil {
-		return err
+		return "",err
 	}
 	var locate locateResponse
 	if err := json.Unmarshal(data, &locate); err != nil {
-		return err
+		return "",err
 	}
+
 	if len(locate.Results) < 1 {
-		return errors.New("too few entries")
+		return "",errors.New("too few entries")
 	}
-	// TODO(bassosimone): support flagRoundTrip here when locate v2 is ready
+	firstResult := locate.Results[0]
+	machineName := strings.Split(firstResult.Machine, ".")[0]
 	*flagDownload = locate.Results[0].URLs[locateDownloadURL]
 	*flagUpload = locate.Results[0].URLs[locateUploadURL]
-	return nil
+	return machineName,nil
 }
 
 
@@ -267,15 +270,17 @@ func main() {
 		return
 	}
 	defer file.Close()
-	fmt.Fprintf(file,"Date,Timestamp,UUID,Test\n")
+	fmt.Fprintf(file,"Machine,Date,Timestamp,UUID,Test\n")
 	for i := 0; i < 2; i++ {
 		flag.Parse()
 		ctx := context.Background()
 		var (
-			conn *websocket.Conn
-			err  error
+			conn        *websocket.Conn
+			err         error
+			machineName string
 		)
-		if err = locate(ctx); err != nil {
+		// Call locate and store the returned machine name
+		if machineName, err = locate(ctx); err != nil {
 			errx(1, err, "locate")
 		}
 		// applyShaping("download")
@@ -283,7 +288,7 @@ func main() {
 			if conn, err = dialer(ctx, *flagDownload); err != nil {
 				errx(1, err, "download")
 			}
-			if err = downloadTest(ctx, conn,file); err != nil {
+			if err = downloadTest(ctx, conn,file,machineName); err != nil {
 				warnx(err, "download")
 			}
 		}
@@ -297,11 +302,14 @@ func main() {
 			if conn, err = dialer(ctx, *flagUpload); err != nil {
 				errx(1, err, "upload")
 			}
-			if err = uploadTest(ctx, conn,file); err != nil {
+			if err = uploadTest(ctx, conn,file,machineName); err != nil {
 				warnx(err, "upload")
 			}
 		}
 		fmt.Printf("Speedtest upload %d conducted\n", i)
 		// stopShaping()
+		// Reset flags to force locate to run again
+		*flagDownload = ""
+		*flagUpload = ""
 	}
 }
