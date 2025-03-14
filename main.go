@@ -58,7 +58,7 @@ func downloadTest(ctx context.Context, conn *websocket.Conn, file *os.File,machi
 					if uuid, ok := connectionInfo["UUID"].(string); ok {
 						timestamp :=  time.Now().UTC().Format("150405")
 						date := time.Now().UTC().Format("2006/01/02")
-						fmt.Fprintf(file,"%s,%s,%s,%s,Download\n",machineName,date,timestamp,uuid)
+						fmt.Fprintf(file,"%s,%s,%s,%s\n",machineName,date,timestamp,uuid)
 					} else {
 						fmt.Println("UUID not found or not a string")
 					}
@@ -118,7 +118,7 @@ func uploadTest(ctx context.Context, conn *websocket.Conn, file *os.File,machine
 					if uuid, ok := connectionInfo["UUID"].(string); ok {
 						timestamp :=  time.Now().UTC().Format("150405")
 						date := time.Now().UTC().Format("2006/01/02")
-						fmt.Fprintf(file,"%s,%s,%s,%s,Upload\n",machineName,date,timestamp, uuid)
+						fmt.Fprintf(file,"%s,%s,%s,%s\n",machineName,date,timestamp, uuid)
 					} else {
 						fmt.Println("UUID not found or not a string")
 					}
@@ -279,7 +279,7 @@ func main() {
 
 	// If the file is newly created, write the header row
 	if isNewFile {
-		fmt.Fprintf(file, "Machine,Date,Timestamp,UUID,Test\n")
+		fmt.Fprintf(file, "Machine,Date,Timestamp,UUID\n")
 	}
 
 	for i := 0; i < 20; i++ {
