@@ -198,9 +198,6 @@ type locateResponse struct {
 func locate(ctx context.Context) (string, error) {
 	// If you don't specify any option then we use locate. Otherwise we assume
 	// you're testing locally and we only do what you asked us to do.
-	if *flagDownload != "" || *flagUpload != "" {
-		return "",nil
-	}
 	resp, err := http.Get("https://locate.measurementlab.net/v2/nearest/ndt/ndt7")
 	if err != nil {
 		return "",err
@@ -282,7 +279,7 @@ func main() {
 		fmt.Fprintf(file, "Machine,Date,Timestamp,UUID\n")
 	}
 
-	for i := 0; i < 20; i++ {
+	for i := 0; i < 100; i++ {
 		flag.Parse()
 		ctx := context.Background()
 		var (
@@ -295,7 +292,7 @@ func main() {
 			if err == nil {
 				break // Exit loop if successful
 			}
-			warnx(err, "locate")
+			errx(1,err, "locate")
 		}
 		// applyShaping("download")
 		if *flagDownload != "" {
@@ -330,9 +327,6 @@ func main() {
 		}
 		fmt.Printf("Speedtest upload %d conducted\n", i)
 		// stopShaping()
-		// Reset flags to force locate to run again
-		*flagDownload = ""
-		*flagUpload = ""
 		time.Sleep(3 * time.Second)
 	}
 }
