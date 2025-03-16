@@ -90,22 +90,29 @@ def filter_pcaps_date(data_folder, filtered_folder, cellular_asns):
                 if ip_address:
                     asn = get_asn(ip_address)
                     if asn in cellular_asns:
+                        print(f'Obtained pcap file {os.path.basename(extracted_file)}')
                         shutil.move(extracted_file, os.path.join(filtered_folder, os.path.basename(extracted_file)))
 
 def filter_pcaps(data_directory, work_dir, filtered_pcaps, asn_file):
+    
+    shutil.rmtree(work_dir, ignore_errors=True)
     os.makedirs(work_dir, exist_ok=True)
     os.makedirs(filtered_pcaps, exist_ok=True)
     cellular_asns = load_asns(asn_file)
     
     for tgz_file in os.listdir(data_directory):
         if tgz_file.endswith(".tgz"):
+            print(f"Working on {tgz_file}")
             tgz_path = os.path.join(data_directory, tgz_file)
             extract_folder = os.path.join(work_dir, os.path.splitext(tgz_file)[0])
             extract_50mb(tgz_path, extract_folder)
             innermost_folder = find_innermost_folder(extract_folder)
-            print(innermost_folder)
             if innermost_folder:
                 filter_pcaps_date(innermost_folder, filtered_pcaps, cellular_asns)
+            shutil.rmtree(extract_folder, ignore_errors=True)
+            
+    shutil.rmtree(work_dir, ignore_errors=True)
+
 
 if __name__ == "__main__":
     DATA_DIRECTORY = "data"
