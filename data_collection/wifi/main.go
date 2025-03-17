@@ -228,7 +228,7 @@ func applyShaping(direction string) error {
 	rand.Seed(time.Now().UnixNano()) // Seed random generator
 
 	// Generate random values
-	rate := fmt.Sprintf("%dmbit", rand.Intn(5000)+1)      // 1 - 5000 Mbps
+	rate := fmt.Sprintf("%dmbit", rand.Intn(400)+100)      // 100- 500 Mbps
 	delay := fmt.Sprintf("%dms", rand.Intn(491)+10)      // 10 - 500 ms
 	jitter := fmt.Sprintf("%dms", rand.Intn(101))        // 0 - 100 ms
 	loss := fmt.Sprintf("%.2f%%", rand.Float64()*5)     // 0% - 5%
@@ -241,7 +241,7 @@ func applyShaping(direction string) error {
 	fmt.Println("  - Packet Loss:", loss)
 
 	// Execute shaping script
-	cmd := exec.Command("bash", "./shaper.sh", "start", direction, rate, delay, jitter, loss)
+	cmd := exec.Command("bash", "./shaping.sh", "start", direction, rate, delay, jitter, loss)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	return cmd.Run()
@@ -253,7 +253,7 @@ func stopShaping() error {
 	fmt.Println("Stopping traffic shaping...")
 
 	// Execute stop script
-	cmd := exec.Command("bash", "./shaper.sh", "stop")
+	cmd := exec.Command("bash", "./shaping.sh", "stop")
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	return cmd.Run()
@@ -279,7 +279,7 @@ func main() {
 		fmt.Fprintf(file, "Machine,Date,Timestamp,UUID\n")
 	}
 
-	for i := 0; i < 100; i++ {
+	for i := 0; i < 3; i++ {
 		flag.Parse()
 		ctx := context.Background()
 		var (
@@ -294,7 +294,7 @@ func main() {
 			}
 			errx(1,err, "locate")
 		}
-		// applyShaping("download")
+		applyShaping("download")
 		if *flagDownload != "" {
 			for {
 				conn, err = dialer(ctx, *flagDownload)
@@ -308,11 +308,11 @@ func main() {
 			}
 		}
 		fmt.Printf("Speedtest download %d conducted\n", i)
-		// stopShaping()
+		stopShaping()
 
 		time.Sleep(3 * time.Second)
 
-		// applyShaping("upload")
+		applyShaping("upload")
 		if *flagUpload != "" {
 			for {
 				conn, err = dialer(ctx, *flagUpload)
@@ -326,7 +326,7 @@ func main() {
 			}
 		}
 		fmt.Printf("Speedtest upload %d conducted\n", i)
-		// stopShaping()
+		stopShaping()
 		time.Sleep(3 * time.Second)
 	}
 }

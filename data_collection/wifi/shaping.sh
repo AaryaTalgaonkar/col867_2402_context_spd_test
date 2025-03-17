@@ -1,6 +1,4 @@
-#!/bin/bash
-
-IFACE="eth0"  # Change this to your actual network interface
+IFACE="wlp0s20f3"  # Change this to your actual network interface
 
 # Function to apply traffic shaping
 start_shaping() {
@@ -19,21 +17,37 @@ start_shaping() {
     stop_shaping
 
     if [ "$DIRECTION" == "upload" ]; then
-        echo "Applying egress shaping (upload) on $IFACE..."
+        echo "Applying egress shaping (upload) on interface: $IFACE..."
         
         tc qdisc add dev $IFACE root handle 1: htb default 10
         tc class add dev $IFACE parent 1: classid 1:1 htb rate $RATE
         tc qdisc add dev $IFACE parent 1:1 handle 10: netem delay $DELAY $JITTER loss $LOSS
 
     elif [ "$DIRECTION" == "download" ]; then
-        echo "Applying ingress shaping (download) on $IFACE..."
+        echo "Applying ingress shaping (download) on interface: $IFACE..."
         
-        modprobe ifb
-        ip link set ifb0 up
+        # Check if IFB module is loaded, load it if not
+	if ! lsmod | grep -q "^ifb "; then
+	    echo "Loading IFB kernel module..."
+	    sudo modprobe ifb
+	fi
+	
+	# Check if ifb0 exists, create it if not
+        if ! ip link show ifb0 &>/dev/null; then
+	    echo "Creating ifb0 interface..."
+	    sudo ip link add ifb0 type ifb
+	fi
+	
+	# Check if ifb0 is up, bring it up if not
+        if [[ $(cat /sys/class/net/ifb0/operstate 2>/dev/null) != "up" ]]; then
+	    echo "Bringing up ifb0 interface..."
+	    sudo ip link set ifb0 up
+	fi
+	
+	
 
         tc qdisc add dev $IFACE handle ffff: ingress
         tc filter add dev $IFACE parent ffff: protocol ip u32 match u32 0 0 flowid 1:1 action mirred egress redirect dev ifb0
-
         tc qdisc add dev ifb0 root handle 1: netem delay $DELAY $JITTER loss $LOSS rate $RATE
 
     else
