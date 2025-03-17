@@ -1,0 +1,29 @@
+ASN(20) Information retrieved from - 
+    https://ftp.ripe.net/ripe/asnames/asn.txt
+    https://search.arin.net/rdap/?
+
+45609   - Bharti Mobility  Airtel                        .
+197207  - Mobile Communication Company of Iran      
+37069   - MOBINIL                                   
+9644    - SK Telecomm                               
+22394   - Verizon Cellular                          
+6167    - Verizon Cellular                          
+26599   - Telefonica Brasil                         
+6713    - Morocco Telecom                           
+52433   - UMobile Cellular                          
+62211   - Vodafone Mobile Turkey                    
+133580  - Vodafone Mobile India                      
+16572   - AT&T Mobility
+17258   - AT&T Mobility
+19540   - AT&T Mobility
+20057   - AT&T Mobility
+27522   - AT&T Mobility
+46164   - AT&T Mobility
+328088  - NetOne Cellular (Private) Limited
+27442   - US Cellular
+55557   - Bharti Mobility Airtel
+
+Following have been removed from original List 
+    37061   - Safaricom  
+    17676   - GigaInfra  
+    4713    - NTT Communications                                                                                    
