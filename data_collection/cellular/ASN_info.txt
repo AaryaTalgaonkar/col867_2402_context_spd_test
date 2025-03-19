@@ -22,8 +22,13 @@ ASN(20) Information retrieved from -
 328088  - NetOne Cellular (Private) Limited
 27442   - US Cellular
 55557   - Bharti Mobility Airtel
-
-Following have been removed from original List 
-    37061   - Safaricom  
-    17676   - GigaInfra  
-    4713    - NTT Communications                                                                                    
+4713    - OCN NTT Communications
+9598    - OCN NTT Communications
+13036   - TMobile Czech Republic
+33898   - TMobile UK
+6714    - T-Mobile Polska S.A.
+8246    - T-Mobile Polska S.A.
+10728   - T-Mobile USA
+21928   - T-Mobile USA
+22140   - T-Mobile USA
+5588    - T-Mobile Czech Republic                                                                                   
