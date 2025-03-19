@@ -1,13 +1,14 @@
-# cellular_classifier.py
 import pandas as pd
 from scapy.all import rdpcap, IP, IPv6, TCP
 import logging
+import os
+from pathlib import Path
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-def process_pcap(pcap_path: str, output_csv: str) -> pd.DataFrame:
+def process_pcap(pcap_path: str, output_csv: str, label_type: str) -> pd.DataFrame:
     """Process PCAP file and generate features"""
     logger.info(f"Processing {pcap_path}")
     
@@ -26,7 +27,8 @@ def process_pcap(pcap_path: str, output_csv: str) -> pd.DataFrame:
             'ttl': None,
             'src_port': None,
             'des_port': None,
-            'seq_no': None
+            'seq_no': None,
+            'label': label_type
         }
         #IP layer
         if pkt.haslayer(IP):
@@ -65,9 +67,13 @@ def process_pcap(pcap_path: str, output_csv: str) -> pd.DataFrame:
     numeric_cols = ['packet_size', 'protocol', 'ttl', 'src_port', 'des_port', 'seq_no']
     df[numeric_cols] = df[numeric_cols].fillna(0).astype(int)
 
-    # Save DataFrame to CSV
-    logger.info(f"Saving processed data to {output_csv}")
-    df.to_csv(output_csv, index=False)
+    # Check if the output CSV already exists
+    file_exists = os.path.exists(output_csv)
+    
+    # Save DataFrame to CSV (append if file exists, else write a new one)
+    logger.info(f"{'Appending processed data to existing' if file_exists else 'Saving processed data to new '} {output_csv}")
+    df.to_csv(output_csv, mode='a' if file_exists else 'w', index=False, header=not file_exists)
+  
     return None
 
 # Example usage
@@ -76,9 +82,27 @@ if __name__ == "__main__":
     formatted_Data_fileName = 'PacketData.csv'
     
     # Process PCAP files
-    # Note : PCAP Path will be modified as per the data directory. 
-    cellular_traffic = process_pcap('ndt-bmn8w_1738217747_00000000002F0AA5.pcap', formatted_Data_fileName)
-    wifi_traffic = process_pcap('ndt-9pvq9_1737862997_0000000000BA5BCB.pcap', formatted_Data_fileName)
+    cellular_directoryPath = Path('cellulardata/')
+    wifi_directoryPath = Path('wifidata/')
+    for file in cellular_directoryPath.iterdir():
+        # Check if it's a file
+        if file.is_file():
+            if file.name == '.DS_Store':
+                print('Ignoring DS Store files')
+            else:
+                pcapPath = str(cellular_directoryPath) + '/'+ str(file.name)
+                process_pcap(pcapPath, formatted_Data_fileName, 'cellular')
+    
+    for file in wifi_directoryPath.iterdir():
+        # Check if it's a file
+        if file.is_file():
+            if file.name == '.DS_Store':
+                print('Ignoring DS Store files')
+            else:
+                pcapPath = str(wifi_directoryPath) + '/' + str(file.name)
+                process_pcap(pcapPath, formatted_Data_fileName, 'wifi')
+    
+    
 
 # ------------------------------------------------------------------------------------------------------------------------------------
 # Below code can be used to directly map the IP address to ASN, given the IP to ASN mapping database is available. 
