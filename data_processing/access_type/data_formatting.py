@@ -79,7 +79,6 @@ def process_pcap(pcap_path: str, output_csv: str, label_type: str) -> pd.DataFra
 # Example usage
 if __name__ == "__main__":
 
-    formatted_Data_fileName = 'PacketData.csv'
     
     # Process PCAP files
     cellular_directoryPath = Path('cellulardata/')
@@ -91,6 +90,7 @@ if __name__ == "__main__":
                 print('Ignoring DS Store files')
             else:
                 pcapPath = str(cellular_directoryPath) + '/'+ str(file.name)
+                formatted_Data_fileName = f"PacketData_{file.stem}.csv" 
                 process_pcap(pcapPath, formatted_Data_fileName, 'cellular')
     
     for file in wifi_directoryPath.iterdir():
@@ -100,6 +100,7 @@ if __name__ == "__main__":
                 print('Ignoring DS Store files')
             else:
                 pcapPath = str(wifi_directoryPath) + '/' + str(file.name)
+                formatted_Data_fileName = f"PacketData_{file.stem}.csv"
                 process_pcap(pcapPath, formatted_Data_fileName, 'wifi')
     
     
