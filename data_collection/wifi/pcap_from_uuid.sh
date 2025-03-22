@@ -1,5 +1,5 @@
 # CSV file containing the data
-CSV_FILE="archive_5.csv"
+CSV_FILE="shaping.csv"
 METADATA_DIR="metadata"
 TEMP_DIR="temp"
 PCAP_DIR="my_pcaps"
@@ -68,7 +68,7 @@ awk -F, 'NR>1' "$CSV_FILE" | while IFS=, read -r MACHINE DATE TIMESTAMP UUID; do
     
 
     # Find first 3 matching filenames after the given timestamp containing the machine name
-    MATCHING_FILES=$(grep "$MACHINE" "$FILE_LIST" | awk -F'[T.]' -v ts="$TIMESTAMP" '$2>=ts' | sort | head -n 3)
+    MATCHING_FILES=$(grep "$MACHINE" "$FILE_LIST" | awk -F'[T.]' -v ts="$TIMESTAMP" '$2>=ts' | sort | head -n 5)
     
     located=0  # Initialize as not found
     # Process each matching file
@@ -90,6 +90,7 @@ awk -F, 'NR>1' "$CSV_FILE" | while IFS=, read -r MACHINE DATE TIMESTAMP UUID; do
         
         
         for ARCHIVE in "$DAY_DIR"/*; do
+            UUID=$(echo -n "$UUID" | tr -d '\r')
             if [[ "$ARCHIVE" == *"$UUID"* ]]; then
                 echo "Found matching UUID in $ARCHIVE"
                 echo ""
