@@ -112,7 +112,7 @@ def featurize_data(pcap_files,output_file):
             if features:
                 writer.writerow(features + [label])
     
-    print("Feature extraction complete. Results saved in features.csv")
+    print(f"Feature extraction complete. Results saved in {output_file}")
 
 if __name__ == "__main__":
     DATA_PATH = "data"
