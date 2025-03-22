@@ -1,157 +1,121 @@
-import pandas as pd
-from scapy.all import rdpcap, IP, IPv6, TCP
-import logging
 import os
-from pathlib import Path
+import csv
+from scapy.all import rdpcap, TCP
+import numpy as np
+import random
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+def compute_iat_metrics(iats_to_443, iats_from_443):
+    iat_mean_to_443 = np.mean(iats_to_443) if iats_to_443 else 0
+    iat_variance_to_443 = np.var(iats_to_443) if iats_to_443 else 0
+    iat_mean_from_443 = np.mean(iats_from_443) if iats_from_443 else 0
+    iat_variance_from_443 = np.var(iats_from_443) if iats_from_443 else 0
+    return iat_mean_to_443, iat_variance_to_443, iat_mean_from_443, iat_variance_from_443
 
-def process_pcap(pcap_path: str, output_csv: str, label_type: str) -> pd.DataFrame:
-    """Process PCAP file and generate features"""
-    logger.info(f"Processing {pcap_path}")
+def compute_latency_metrics(latencies_to_443, latencies_from_443):
+    latency_mean_to_443 = np.mean(latencies_to_443) if latencies_to_443 else 0
+    latency_variance_to_443 = np.var(latencies_to_443) if latencies_to_443 else 0
+    latency_mean_from_443 = np.mean(latencies_from_443) if latencies_from_443 else 0
+    latency_variance_from_443 = np.var(latencies_from_443) if latencies_from_443 else 0
+    return latency_mean_to_443, latency_variance_to_443, latency_mean_from_443, latency_variance_from_443
+
+def compute_throughput(sizes_to_443, sizes_from_443, duration):
+    throughput_to_443 = sum(sizes_to_443) / duration if duration > 0 else 0
+    throughput_from_443 = sum(sizes_from_443) / duration if duration > 0 else 0
+    return throughput_to_443, throughput_from_443
+
+def compute_burst_ratio(iats_to_443, iats_from_443):
+    def burst_ratio(iats):
+        if not iats:
+            return 0
+        burst_threshold = np.percentile(iats, 10)
+        return sum(1 for iat in iats if iat < burst_threshold) / len(iats)
     
-    # Read PCAP file
-    packets = rdpcap(pcap_path)
-    
-    # Extract features
-    data = []
-    for pkt in packets:
-        entry = {
-            'timestamp': pkt.time,
-            'src_ip': None,
-            'dst_ip': None,
-            'packet_size': None,
-            'protocol': None,
-            'ttl': None,
-            'src_port': None,
-            'des_port': None,
-            'seq_no': None,
-            'label': label_type
-        }
-        #IP layer
-        if pkt.haslayer(IP):
-            ip_layer = pkt[IP]
-            entry.update({
-                'timestamp': pkt.time,
-                'src_ip': ip_layer.src,
-                'dst_ip': ip_layer.dst,
-                'packet_size': len(ip_layer),
-                'protocol': ip_layer.proto,
-                'ttl': ip_layer.ttl
-            })
-        elif pkt.haslayer(IPv6):  # Handle IPv6 packets
-            ipv6_layer = pkt[IPv6]
-            entry.update({
-                'timestamp': pkt.time,
-                'src_ip': ipv6_layer.src,
-                'dst_ip': ipv6_layer.dst,
-                'packet_size': len(ipv6_layer),
-                'protocol': ipv6_layer.nh,  
-                'ttl': ipv6_layer.hlim,  
-            })
-        #TCP Layer
-        if pkt.haslayer(TCP):
-            tcp_layer = pkt[TCP]
-            entry.update({     
-                'src_port': tcp_layer.sport,
-                'des_port': (tcp_layer.dport),
-                'seq_no': int(tcp_layer.seq),
-            })
-        data.append(entry)
+    return burst_ratio(iats_to_443), burst_ratio(iats_from_443)
 
+def extract_pcap_features(pcap_file):    
+    packets = rdpcap(pcap_file)
+    if not packets:
+        return None
     
-    # Create DataFrame
-    df = pd.DataFrame(data)
-    numeric_cols = ['packet_size', 'protocol', 'ttl', 'src_port', 'des_port', 'seq_no']
-    df[numeric_cols] = df[numeric_cols].fillna(0).astype(int)
-
-    # Check if the output CSV already exists
-    file_exists = os.path.exists(output_csv)
+    timestamps, iats_to_443, iats_from_443 = [], [], []
+    latencies_to_443, latencies_from_443 = [], []
+    sizes_to_443, sizes_from_443 = [], []
+    packet_count_to_443, packet_count_from_443 = 0, 0
     
-    # Save DataFrame to CSV (append if file exists, else write a new one)
-    logger.info(f"{'Appending processed data to existing' if file_exists else 'Saving processed data to new '} {output_csv}")
-    df.to_csv(output_csv, mode='a' if file_exists else 'w', index=False, header=not file_exists)
-  
-    return None
+    first_timestamp = packets[0].time
+    
+    for i, packet in enumerate(packets):
+        if TCP in packet:
+            src_port = packet[TCP].sport
+            dst_port = packet[TCP].dport
+            timestamp = packet.time
+            size = len(packet)
+        
+            timestamps.append(timestamp)
+        
+            if dst_port == 443:
+                packet_count_to_443 += 1
+                sizes_to_443.append(size)
+                if i > 0:
+                    latencies_to_443.append(timestamp - timestamps[i - 1])
+                    iats_to_443.append(timestamp - timestamps[i - 1])
+            elif src_port == 443:
+                packet_count_from_443 += 1
+                sizes_from_443.append(size)
+                if i > 0:
+                    latencies_from_443.append(timestamp - timestamps[i - 1])
+                    iats_from_443.append(timestamp - timestamps[i - 1])
+    
+    if len(timestamps) < 2:
+        return None  # Skip files with insufficient data
+    
+    total_time = timestamps[-1] - first_timestamp or 1
+    
+    burst_ratio_to_443, burst_ratio_from_443 = compute_burst_ratio(iats_to_443, iats_from_443)
+    throughput_to_443, throughput_from_443 = compute_throughput(sizes_to_443, sizes_from_443, total_time)
+    latency_mean_to_443, latency_variance_to_443, latency_mean_from_443, latency_variance_from_443 = compute_latency_metrics(latencies_to_443, latencies_from_443)
+    iat_mean_to_443, iat_variance_to_443, iat_mean_from_443, iat_variance_from_443 = compute_iat_metrics(iats_to_443, iats_from_443)
+    
+    return [burst_ratio_to_443, burst_ratio_from_443, 
+            throughput_to_443, throughput_from_443, 
+            latency_mean_to_443, latency_mean_from_443, 
+            latency_variance_to_443, latency_variance_from_443, 
+            iat_mean_to_443, iat_mean_from_443, 
+            iat_variance_to_443, iat_variance_from_443, 
+            packet_count_to_443, packet_count_from_443]
 
-# Example usage
+def get_shuffled_list(data_path):
+    pcap_files = []
+    for label, folder in [(1, "cellular"), (0, "wifi")]:
+        dir_path = os.path.join(data_path, folder)
+        if os.path.exists(dir_path):
+            for f in os.listdir(dir_path):
+                if f.endswith(".pcap"):
+                    pcap_files.append((os.path.join(dir_path, f), label))
+    
+    random.shuffle(pcap_files)  # Shuffle in place
+    return pcap_files  # Return the shuffled list
+
+def featurize_data(pcap_files,output_file):
+    header = ["burst_ratio_to_443", "burst_ratio_from_443", 
+              "throughput_to_443", "throughput_from_443", 
+              "latency_mean_to_443", "latency_mean_from_443", 
+              "latency_variance_to_443", "latency_variance_from_443", 
+              "IAT_mean_to_443", "IAT_mean_from_443", 
+              "IAT_variance_to_443", "IAT_variance_from_443", 
+              "packet_count_to_443", "packet_count_from_443", "label"]
+    with open(output_file, mode='w', newline='') as file:
+        writer = csv.writer(file)
+        writer.writerow(header)
+        for pcap_file, label in pcap_files:
+            features = extract_pcap_features(pcap_file)
+            if features:
+                writer.writerow(features + [label])
+    
+    print("Feature extraction complete. Results saved in features.csv")
+
 if __name__ == "__main__":
-
-    
-    # Process PCAP files
-    cellular_directoryPath = Path('cellulardata/')
-    wifi_directoryPath = Path('wifidata/')
-    for file in cellular_directoryPath.iterdir():
-        # Check if it's a file
-        if file.is_file():
-            if file.name == '.DS_Store':
-                print('Ignoring DS Store files')
-            else:
-                pcapPath = str(cellular_directoryPath) + '/'+ str(file.name)
-                formatted_Data_fileName = f"PacketData_{file.stem}.csv" 
-                process_pcap(pcapPath, formatted_Data_fileName, 'cellular')
-    
-    for file in wifi_directoryPath.iterdir():
-        # Check if it's a file
-        if file.is_file():
-            if file.name == '.DS_Store':
-                print('Ignoring DS Store files')
-            else:
-                pcapPath = str(wifi_directoryPath) + '/' + str(file.name)
-                formatted_Data_fileName = f"PacketData_{file.stem}.csv"
-                process_pcap(pcapPath, formatted_Data_fileName, 'wifi')
-    
-    
-
-# ------------------------------------------------------------------------------------------------------------------------------------
-# Below code can be used to directly map the IP address to ASN, given the IP to ASN mapping database is available. 
-# import ipaddress
-# def load_ip_to_asn_mapping(csv_path: str) -> pd.DataFrame:
-#     """
-#     Load IP-to-ASN mapping from a CSV file.
-#     """
-#     try:
-#         ip_to_asn_df = pd.read_csv(csv_path)
-#         logger.info(f"Loaded {len(ip_to_asn_df)} IP-to-ASN mappings from {csv_path}")
-
-#         # Add integer representations of start and end IPs
-#         ip_to_asn_df['start_ip_int'] = ip_to_asn_df['start_ip'].apply(lambda x: int(ipaddress.ip_address(x)))
-#         ip_to_asn_df['end_ip_int'] = ip_to_asn_df['end_ip'].apply(lambda x: int(ipaddress.ip_address(x)))
-
-#         return ip_to_asn_df
-#     except FileNotFoundError:
-#         logger.error(f"CSV file not found: {csv_path}")
-#         raise
-#     except Exception as e:
-#         logger.error(f"Error loading IP-to-ASN mapping CSV: {str(e)}")
-#         raise
-
-# def get_asn(ip: str, ip_to_asn_df: pd.DataFrame) -> int:
-#     """Get ASN for an IP address using the loaded IP-to-ASN mapping."""
-#     try:
-#         ip_int = int(ipaddress.ip_address(ip))
-#         # Filter rows where the IP falls within the start and end range
-#         match = ip_to_asn_df[
-#             (ip_to_asn_df['start_ip_int'] <= ip_int) & (ip_to_asn_df['end_ip_int'] >= ip_int)
-#         ]
-#         if not match.empty:
-#             return match.iloc[0]['asn']  # Return the first matching ASN
-#         return None  # No match found
-#     except ValueError:
-#         logger.warning(f"Invalid IP address: {ip}")
-#         return None
-#     except Exception as e:
-#         logger.error(f"ASN lookup failed for {ip}: {str(e)}")
-#         return None
-
-# Code that would be added to process_pcap file
-# Add network features
-# logger.info("Adding ASN features...")
-# if isIPv6Packet:
-#     df['src_asn'] = df['src_ip'].apply(lambda x: get_asn(x, ipv6_to_asn_df))
-#     df['dst_asn'] = df['dst_ip'].apply(lambda x: get_asn(x, ipv6_to_asn_df))
-# else : 
-#     df['src_asn'] = df['src_ip'].apply(lambda x: get_asn(x, ipv4_to_asn_df))
-#     df['dst_asn'] = df['dst_ip'].apply(lambda x: get_asn(x, ipv4_to_asn_df))
+    DATA_PATH = "data"
+    OUTPUT_CSV = "features.csv"
+    pcap_files = get_shuffled_list(DATA_PATH)
+    featurize_data(pcap_files,OUTPUT_CSV)  
