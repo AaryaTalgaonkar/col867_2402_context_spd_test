@@ -242,6 +242,8 @@ func applyShaping(direction string) error {
 
 	// Execute shaping script
 	cmd := exec.Command("bash", "./shaping.sh", "start", direction, rate, delay, jitter, loss)
+	// Below command for executing traffic shaping code using pfctl
+	// cmd := exec.Command("bash", "./mac_TrafficShaper.sh", "start", direction, rate, delay, jitter, loss)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	return cmd.Run()
@@ -254,6 +256,8 @@ func stopShaping() error {
 
 	// Execute stop script
 	cmd := exec.Command("bash", "./shaping.sh", "stop")
+	// Below command for executing traffic shaping code using pfctl
+	// cmd := exec.Command("bash", "./mac_TrafficShaper.sh", "stop")
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	return cmd.Run()
@@ -279,7 +283,7 @@ func main() {
 		fmt.Fprintf(file, "Machine,Date,Timestamp,UUID\n")
 	}
 
-	for i := 0; i < 3; i++ {
+	for i := 0; i < 1; i++ {
 		flag.Parse()
 		ctx := context.Background()
 		var (
