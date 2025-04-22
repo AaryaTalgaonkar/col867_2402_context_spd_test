@@ -84,7 +84,7 @@ if __name__ == "__main__":
     y_pred_down = model_down.predict(X_val_down)
     metrics = model_down.evaluate(y_pred_down, y_val_down)
     
-    print("Evaluation Metrics:")
+    print("Evaluation Metrics Download Model:")
     for key, value in metrics.items():
         print(f"{key}: {value}")
     
@@ -97,7 +97,7 @@ if __name__ == "__main__":
     y_pred_up = model_up.predict(X_val_up)
     metrics = model_up.evaluate(y_pred_up, y_val_up)
     
-    print("Evaluation Metrics:")
+    print("Evaluation Metrics Upload Model:")
     for key, value in metrics.items():
         print(f"{key}: {value}")
     
