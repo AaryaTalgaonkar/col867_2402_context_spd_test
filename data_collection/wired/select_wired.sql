@@ -1,4 +1,4 @@
-SELECT id,parser.Time,server.Site,server.Machine 
+SELECT id,a.TestTime,server.Site,server.Machine 
 FROM `measurement-lab.ndt.ndt7` 
 WHERE Date BETWEEN '2025-01-01' 
 AND '2025-04-10' 
