@@ -3,34 +3,48 @@ import csv
 from scapy.all import rdpcap, TCP
 import numpy as np
 import random
-
 def compute_iat_metrics(iats_to_443, iats_from_443):
+    iats_to_443 = [float(iat) for iat in iats_to_443]
+    iats_from_443 = [float(iat) for iat in iats_from_443]
+
     iat_mean_to_443 = np.mean(iats_to_443) if iats_to_443 else 0
     iat_variance_to_443 = np.var(iats_to_443) if iats_to_443 else 0
     iat_mean_from_443 = np.mean(iats_from_443) if iats_from_443 else 0
     iat_variance_from_443 = np.var(iats_from_443) if iats_from_443 else 0
+
     return iat_mean_to_443, iat_variance_to_443, iat_mean_from_443, iat_variance_from_443
 
 def compute_latency_metrics(latencies_to_443, latencies_from_443):
+    latencies_to_443 = [float(lat) for lat in latencies_to_443]
+    latencies_from_443 = [float(lat) for lat in latencies_from_443]
+
     latency_mean_to_443 = np.mean(latencies_to_443) if latencies_to_443 else 0
     latency_variance_to_443 = np.var(latencies_to_443) if latencies_to_443 else 0
     latency_mean_from_443 = np.mean(latencies_from_443) if latencies_from_443 else 0
     latency_variance_from_443 = np.var(latencies_from_443) if latencies_from_443 else 0
+
     return latency_mean_to_443, latency_variance_to_443, latency_mean_from_443, latency_variance_from_443
 
 def compute_throughput(sizes_to_443, sizes_from_443, duration):
+    sizes_to_443 = [float(size) for size in sizes_to_443]
+    sizes_from_443 = [float(size) for size in sizes_from_443]
+    duration = float(duration)
+
     throughput_to_443 = sum(sizes_to_443) / duration if duration > 0 else 0
     throughput_from_443 = sum(sizes_from_443) / duration if duration > 0 else 0
+
     return throughput_to_443, throughput_from_443
 
 def compute_burst_ratio(iats_to_443, iats_from_443):
     def burst_ratio(iats):
         if not iats:
             return 0
-        burst_threshold = np.percentile(iats, 10)
-        return sum(1 for iat in iats if iat < burst_threshold) / len(iats)
-    
+        iats_float = [float(iat) for iat in iats]
+        burst_threshold = np.percentile(iats_float, 10)
+        return sum(1 for iat in iats_float if iat < burst_threshold) / len(iats_float)
+
     return burst_ratio(iats_to_443), burst_ratio(iats_from_443)
+
 
 def extract_pcap_features(pcap_file):    
     packets = rdpcap(pcap_file)
