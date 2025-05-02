@@ -67,13 +67,13 @@ def extract_pcap_features(pcap_file):
         
             timestamps.append(timestamp)
         
-            if dst_port == 443:
+            if dst_port == 443 or dst_port == 80:
                 packet_count_to_443 += 1
                 sizes_to_443.append(size)
                 if i > 0:
                     latencies_to_443.append(timestamp - timestamps[i - 1])
                     iats_to_443.append(timestamp - timestamps[i - 1])
-            elif src_port == 443:
+            elif src_port == 443 or dst_port == 80:
                 packet_count_from_443 += 1
                 sizes_from_443.append(size)
                 if i > 0:
